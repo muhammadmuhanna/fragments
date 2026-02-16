@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { FragmentSchema } from '@/lib/schema'
+import { CodeSelection, SelectionMode } from '@/lib/selection-context'
 import { getTemplateId } from '@/lib/templates'
 import { ExecutionResult, ExecutionResultWeb } from '@/lib/types'
 import { DeepPartial } from 'ai'
@@ -26,6 +27,8 @@ export function Preview({
   fragment,
   result,
   onClose,
+  selectionMode = 'auto',
+  onAttachSelection,
 }: {
   teamID: string | undefined
   accessToken: string | undefined
@@ -36,6 +39,8 @@ export function Preview({
   fragment?: DeepPartial<FragmentSchema>
   result?: ExecutionResult
   onClose: () => void
+  selectionMode?: SelectionMode
+  onAttachSelection?: (selection: CodeSelection) => void
 }) {
   if (!fragment) {
     return null
@@ -123,6 +128,8 @@ export function Preview({
                       content: fragment.code,
                     },
                   ]}
+                  selectionMode={selectionMode}
+                  onAttachSelection={onAttachSelection}
                 />
               )}
             </TabsContent>

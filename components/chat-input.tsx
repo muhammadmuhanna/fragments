@@ -8,9 +8,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { CodeSelection, truncateForPreview } from '@/lib/selection-context'
 import { isFileInArray } from '@/lib/utils'
-import { ArrowUp, Paperclip, Square, X } from 'lucide-react'
-import { SetStateAction, useEffect, useMemo, useState } from 'react'
+import { ArrowUp, FileCode2, Paperclip, Square, X } from 'lucide-react'
+import { SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
 import TextareaAutosize from 'react-textarea-autosize'
 
 export function ChatInput({
@@ -26,6 +27,9 @@ export function ChatInput({
   isMultiModal,
   files,
   handleFileChange,
+  attachedContext,
+  onClearAttachedContext,
+  focusNonce,
   children,
 }: {
   retry: () => void
@@ -40,8 +44,22 @@ export function ChatInput({
   isMultiModal: boolean
   files: File[]
   handleFileChange: (change: SetStateAction<File[]>) => void
+  attachedContext?: CodeSelection | null
+  onClearAttachedContext?: () => void
+  focusNonce?: number
   children: React.ReactNode
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  useEffect(() => {
+    if (!focusNonce) return
+    const el = textareaRef.current
+    if (!el) return
+    el.focus()
+    const pos = el.value.length
+    el.setSelectionRange(pos, pos)
+  }, [focusNonce])
+
   function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     handleFileChange((prev) => {
       const newFiles = Array.from(e.target.files || [])
@@ -182,7 +200,26 @@ export function ChatInput({
           }`}
         >
           <div className="flex items-center px-3 py-2 gap-1">{children}</div>
+          {attachedContext && onClearAttachedContext && (
+            <div className="mx-3 mb-1 flex items-start gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-xs">
+              <FileCode2 className="h-4 w-4 mt-0.5 shrink-0 text-[#ff8800]" />
+              <div className="flex-1 min-w-0">
+                <span className="font-medium text-foreground">{attachedContext.fileName}</span>
+                <pre className="mt-1 whitespace-pre-wrap break-all text-muted-foreground font-mono leading-relaxed">
+                  {truncateForPreview(attachedContext.text)}
+                </pre>
+              </div>
+              <button
+                type="button"
+                onClick={onClearAttachedContext}
+                className="shrink-0 rounded-md p-0.5 hover:bg-muted"
+              >
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </div>
+          )}
           <TextareaAutosize
+            ref={textareaRef}
             autoFocus={true}
             minRows={1}
             maxRows={5}

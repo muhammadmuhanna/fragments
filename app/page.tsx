@@ -15,6 +15,7 @@ import modelsList from '@/lib/models.json'
 import { FragmentSchema, fragmentSchema as schema } from '@/lib/schema'
 import { supabase } from '@/lib/supabase'
 import templates from '@/lib/templates'
+import { CodeSelection, SelectionMode, formatSelectionContext } from '@/lib/selection-context'
 import { ExecutionResult } from '@/lib/types'
 import { DeepPartial } from 'ai'
 import { experimental_useObject as useObject } from 'ai/react'
@@ -46,7 +47,13 @@ export default function Home() {
   const [authView, setAuthView] = useState<ViewType>('sign_in')
   const [isRateLimited, setIsRateLimited] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [attachedSelection, setAttachedSelection] = useState<CodeSelection | null>(null)
+  const [focusNonce, setFocusNonce] = useState(0)
   const { session, userTeam } = useAuth(setAuthDialog, setAuthView)
+  const [selectionMode, setSelectionMode] = useLocalStorage<SelectionMode>(
+    'selectionMode',
+    'auto',
+  )
   const [useMorphApply, setUseMorphApply] = useLocalStorage(
     'useMorphApply',
     process.env.NEXT_PUBLIC_USE_MORPH_APPLY === 'true',
@@ -179,6 +186,10 @@ export default function Home() {
       stop()
     }
 
+    const textForLLM = attachedSelection
+      ? formatSelectionContext(attachedSelection, chatInput)
+      : chatInput
+
     const content: Message['content'] = [{ type: 'text', text: chatInput }]
     const images = await toMessageImage(files)
 
@@ -193,10 +204,23 @@ export default function Home() {
       content,
     })
 
+    const messagesForLLM = toAISDKMessages(updatedMessages)
+    if (attachedSelection) {
+      const lastMsg = messagesForLLM[messagesForLLM.length - 1]
+      if (lastMsg && Array.isArray(lastMsg.content)) {
+        const textPart = lastMsg.content.find(
+          (c: { type: string }) => c.type === 'text',
+        )
+        if (textPart) {
+          ;(textPart as { type: string; text: string }).text = textForLLM
+        }
+      }
+    }
+
     submit({
       userID: session?.user?.id,
       teamID: userTeam?.id,
-      messages: toAISDKMessages(updatedMessages),
+      messages: messagesForLLM,
       template: currentTemplate,
       model: currentModel,
       config: languageModel,
@@ -205,6 +229,7 @@ export default function Home() {
 
     setChatInput('')
     setFiles([])
+    setAttachedSelection(null)
     setCurrentTab('code')
 
     posthog.capture('chat_submit', {
@@ -260,6 +285,11 @@ export default function Home() {
     posthog.capture(`${target}_click`)
   }
 
+  function handleAttachAndFocus(selection: CodeSelection) {
+    setAttachedSelection(selection)
+    setFocusNonce((n) => n + 1)
+  }
+
   function handleClearChat() {
     stop()
     setChatInput('')
@@ -267,6 +297,7 @@ export default function Home() {
     setMessages([])
     setFragment(undefined)
     setResult(undefined)
+    setAttachedSelection(null)
     setCurrentTab('code')
     setIsPreviewLoading(false)
   }
@@ -326,6 +357,9 @@ export default function Home() {
             isMultiModal={currentModel?.multiModal || false}
             files={files}
             handleFileChange={handleFileChange}
+            attachedContext={attachedSelection}
+            onClearAttachedContext={() => setAttachedSelection(null)}
+            focusNonce={focusNonce}
           >
             <ChatPicker
               templates={templates}
@@ -342,6 +376,8 @@ export default function Home() {
               baseURLConfigurable={!process.env.NEXT_PUBLIC_NO_BASE_URL_INPUT}
               useMorphApply={useMorphApply}
               onUseMorphApplyChange={setUseMorphApply}
+              selectionMode={selectionMode}
+              onSelectionModeChange={setSelectionMode}
             />
           </ChatInput>
         </div>
@@ -355,6 +391,8 @@ export default function Home() {
           fragment={fragment}
           result={result as ExecutionResult}
           onClose={() => setFragment(undefined)}
+          selectionMode={selectionMode}
+          onAttachSelection={handleAttachAndFocus}
         />
       </div>
     </main>

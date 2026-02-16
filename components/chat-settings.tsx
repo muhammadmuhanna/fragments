@@ -15,6 +15,7 @@ import {
   TooltipTrigger,
 } from './ui/tooltip'
 import { LLMModelConfig } from '@/lib/models'
+import type { SelectionMode } from '@/lib/selection-context'
 import { ExternalLink, Settings2 } from 'lucide-react'
 
 export function ChatSettings({
@@ -24,6 +25,8 @@ export function ChatSettings({
   onLanguageModelChange,
   useMorphApply,
   onUseMorphApplyChange,
+  selectionMode,
+  onSelectionModeChange,
 }: {
   apiKeyConfigurable: boolean
   baseURLConfigurable: boolean
@@ -31,6 +34,8 @@ export function ChatSettings({
   onLanguageModelChange: (model: LLMModelConfig) => void
   useMorphApply: boolean
   onUseMorphApplyChange: (enabled: boolean) => void
+  selectionMode: SelectionMode
+  onSelectionModeChange: (mode: SelectionMode) => void
 }) {
   return (
     <DropdownMenu>
@@ -70,6 +75,26 @@ export function ChatSettings({
             Learn more about Morph Apply <ExternalLink className="h-4 w-4" />
             <span className="sr-only">Learn more about Morph Apply</span>
           </a>
+        </div>
+        <DropdownMenuSeparator />
+        <div className="flex flex-col gap-2 px-2 py-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="selection-mode-toggle" className="text-sm font-medium">
+              Auto-attach selection
+            </Label>
+            <Switch
+              id="selection-mode-toggle"
+              checked={selectionMode === 'auto'}
+              onCheckedChange={(checked) =>
+                onSelectionModeChange(checked ? 'auto' : 'menu')
+              }
+            />
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {selectionMode === 'auto'
+              ? 'Selection is attached on mouse release'
+              : 'Right-click selection to attach or copy'}
+          </span>
         </div>
         <DropdownMenuSeparator />
         {apiKeyConfigurable && (
